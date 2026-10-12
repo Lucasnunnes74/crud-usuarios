@@ -1,10 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import type { UserPersol } from '../type/usuario'
 
+type Consulta = { usuarios: UserPersol[]; carregando: boolean; erro: string | null }
+type Acao =
+  | { type: 'BUSCA_INICIO' }
+  | { type: 'BUSCA_SUCESSO'; payload: UserPersol[] }
+  | { type: 'BUSCA_ERRO'; payload: string }
+
+const estadoInicial: Consulta = { usuarios: [], carregando: true, erro: null }
+
+function reducer(estado: Consulta, acao: Acao): Consulta {
+  switch (acao.type) {
+    case 'BUSCA_INICIO':
+      return { ...estado, carregando: true, erro: null }
+    case 'BUSCA_SUCESSO':
+      return { ...estado, usuarios: acao.payload, carregando: false, erro: null }
+    case 'BUSCA_ERRO':
+      return { ...estado, erro: acao.payload, carregando: false }
+    default:
+      return estado
+  }
+}
+
 function UserApi() {
-  const [usuarios, setUsuarios] = useState<UserPersol[]>([])
-  const [carregando, setCarregando] = useState<boolean>(true)
-  const [erro, setErro] = useState<string | null>(null)
+  const [estado, atulEstado] = useReducer(reducer, estadoInicial)
+  const { usuarios, carregando, erro } = estado
   const [busca, setBusca] = useState<string>('')
   const filtrados = usuarios.filter((list) =>
     list.name.toLowerCase().trim().includes(busca.toLowerCase().trim())
@@ -13,17 +33,16 @@ function UserApi() {
 
   useEffect(() => {
     async function buscarUsuarios() {
+      atulEstado({ type: 'BUSCA_INICIO' })
       try {
         const resposta = await fetch('https://jsonplaceholder.typicode.com/users')
         if (!resposta.ok) {
           throw new Error('resposta')
         }
         const dados = await resposta.json()
-        return setUsuarios(dados)
+        atulEstado({ type: 'BUSCA_SUCESSO', payload: dados })
       } catch {
-        return setErro('Algo deu errado, erro');
-      } finally {
-        setCarregando(false)
+        atulEstado({ type: 'BUSCA_ERRO', payload: 'Algo deu errado, erro' })
       }
     }
     buscarUsuarios()
